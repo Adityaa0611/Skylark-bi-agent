@@ -1,149 +1,143 @@
-<div align="center">
+```
+   _____ _____   ____  _         .+.::+   .::+#####+
+  / ____|  __ \ / __ \| |       .::::+.::: BI AGENT
+ | (___ | |__) | |  | | |       :.:+###.:::::.
+  \___ \|  _  /| |  | | |        .:++###+::.
+  ____) | | \ \| |__| | |____    ..:+++::.
+ |_____/|_|  \_\\____/|______|     ...
+```
 
-# 🛸 Skylark BI Agent
-
-### Ask your business a question. Get a founder-ready answer.
-
-_A conversational BI analyst that queries **live** monday.com boards — no CSV exports, no stale dashboards._
-
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Groq](https://img.shields.io/badge/Groq-Llama%203.3%2070B-F55036?logo=groq&logoColor=white)](https://console.groq.com/)
-[![monday.com](https://img.shields.io/badge/monday.com-GraphQL%20API-FF3D57?logo=monday.com&logoColor=white)](https://developer.monday.com/)
-[![Status](https://img.shields.io/badge/status-prototype-yellow)]()
-
-</div>
+**Skylark Drones asks its data questions. This answers them — live, from monday.com, in plain English.**
 
 ---
 
-### 💬 What it does
+### the pitch, in one exchange
 
-> *"How's our pipeline looking for the Mining sector?"*
-> *"What's the status of our Renewables work orders?"*
-> *"Give me a leadership update on deal flow this quarter."*
+```
+you   > How's our pipeline looking for the Mining sector?
 
-Ask it like you'd ask an analyst. It pulls straight from monday.com,
-cleans the messy real-world data on the way in, and answers with
-numbers, context, and the caveats that matter — not just a raw table.
+agent > Mining pipeline: ₹4.2Cr across 11 open deals, concentrated in
+        Negotiation and Proposal stages (7 of 11). One data-quality
+        note: 2 deals are missing a closure probability, so this
+        total may be conservative. Take-away: Mining is your
+        second-largest open sector after Renewables — worth a
+        check-in on the two unscored deals before quarter close.
+```
 
-<div align="center">
-<img src="./screenshot.png" alt="Skylark BI Agent chat interface" width="720">
-
-<sub>The deployed agent — dark UI, live refresh, conversational input</sub>
-</div>
+No dashboard. No filter menu. No stale export. Just a question and
+an answer that actually reasons about the data behind it.
 
 ---
 
-## 📚 Contents
+### the screenshot, because you should see it before you read about it
 
-- [Why this exists](#-why-this-exists)
-- [How it's built](#%EF%B8%8F-how-its-built)
-- [Setup](#-setup)
-- [monday.com configuration](#-mondaycom-configuration)
-- [Known data-quality handling](#-known-data-quality-handling)
-- [Files](#-files)
+<img src="./screenshot.png" alt="Skylark BI Agent — live chat interface" width="700">
 
-## 🎯 Why this exists
+---
 
-Founders don't want to open monday.com, filter three boards, and do
-mental math. They want to ask a question in plain English and get a
-straight answer — with the messiness of real data (missing values,
-inconsistent formats, ambiguous phrasing) already handled for them.
-This agent is built to be that layer.
+### under the hood
 
-## 🏛️ How it's built
+Three files. That's the whole engine.
 
-| Layer | File | Job |
-|---|---|---|
-| 💬 **Chat UI** | `app.py` | Streamlit interface; Groq (Llama 3.3 70B) tool-calling loop interprets questions, calls the right tool, and writes the final answer |
-| 📡 **API client** | `monday_client.py` | Thin GraphQL wrapper over monday.com — auth, pagination, error handling |
-| 🧹 **Cleaning** | `normalize.py` | Turns raw monday.com column values into typed pandas DataFrames; runs missingness/data-quality checks |
+```
+app.py             — Streamlit chat + Groq (Llama 3.3 70B) tool-calling loop
+monday_client.py    — GraphQL wrapper: auth, pagination, nothing fancier
+normalize.py        — turns monday.com's raw text cells into real,
+                       typed, checked pandas data
+```
 
-**Three tools, on demand:**
+The model doesn't get raw access to your boards. It gets **three
+tools**, and it has to ask for what it needs, like anyone would:
 
-| Tool | What it answers |
-|---|---|
-| `query_deals` | Pipeline value, row counts, and samples — filterable by sector, stage, or status |
-| `query_work_orders` | Execution-status breakdown by sector — counts and percentages |
-| `get_data_quality_report` | The missing-data caveats behind any of the above |
+```
+query_deals(sector?, stage?, status?)
+    → row count, pipeline value, sample rows
 
-The system prompt requires every answer to include a headline number,
-the supporting breakdown, relevant context, data-quality caveats, and
-one concrete takeaway — not a bare figure with no interpretation.
-Ambiguous questions ("this quarter," with no year) get a clarifying
-question instead of a silent guess.
+query_work_orders(sector?)
+    → execution-status breakdown, counts + percentages
 
-## ⚙️ Setup
+get_data_quality_report()
+    → what's missing, and how much
+```
 
-### 1️⃣ Clone & environment
+The system prompt won't let it hand back a bare number either — every
+answer needs the headline, the breakdown behind it, relevant context,
+any data-quality caveat, and one actual takeaway. If a question is
+vague ("this quarter" — which year?), it asks instead of guessing.
+
+---
+
+### getting it running
+
+<details>
+<summary><strong>1. clone + install</strong></summary>
 
 ```bash
 git clone https://github.com/Adityaa0611/Skylark-bi-agent.git
 cd Skylark-bi-agent
-python -m venv venv
-# Windows:      venv\Scripts\activate
-# Mac / Linux:  source venv/bin/activate
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-> Pinned to **Python 3.12** (`runtime.txt`) — newer Python builds have
-> hit dependency issues with this stack.
+Python is pinned to **3.12** in `runtime.txt` — newer builds have hit
+dependency friction with this stack.
+</details>
 
-### 2️⃣ Configure secrets
+<details>
+<summary><strong>2. secrets — drop these into a `.env`</strong></summary>
 
-Create a `.env` file (see `.env.example`):
+```
+MONDAY_API_TOKEN       # monday.com → Admin → API
+GROQ_API_KEY           # console.groq.com — free
+DEALS_BOARD_ID         # your Deals board's numeric ID
+WORK_ORDERS_BOARD_ID   # your Work Orders board's numeric ID
+```
+</details>
 
-| Variable | Where to get it |
-|---|---|
-| 🔑 `MONDAY_API_TOKEN` | monday.com → **Admin** → **API** |
-| 🔑 `GROQ_API_KEY` | [console.groq.com](https://console.groq.com/) *(free)* |
-| 🔢 `DEALS_BOARD_ID` | Your Deals board's ID |
-| 🔢 `WORK_ORDERS_BOARD_ID` | Your Work Orders board's ID |
-
-### 3️⃣ Run it
+<details>
+<summary><strong>3. run it</strong></summary>
 
 ```bash
 streamlit run app.py
 ```
-
-## 🧩 monday.com configuration
-
-Import the provided CSVs as two boards, **Deals** and **Work Orders**,
-using Status/Date/Numbers column types as described in the assignment.
-
-- **Deals** columns are matched by monday.com's auto-generated column
-  IDs (`DEALS_COLUMN_MAP` in `app.py`) — these are board-specific, so
-  if you rebuild the board, re-discover the IDs and update the map.
-- **Work Orders** columns are matched by **title keywords** instead
-  (`WORK_ORDERS_KEYWORD_MAP`), so no manual column-ID lookup is needed
-  there — the agent finds the right column by scanning titles for
-  words like "status," "sector," or "value."
-
-## 🧹 Known data-quality handling
-
-| Issue | Handling |
-|---|---|
-| Missing deal values | Treated as **unknown**, not zero — excluded from totals rather than counted as `$0` |
-| Inconsistent date formats | Parsed across multiple common formats; anything unparseable becomes `null`, not a crash |
-| Incomplete data affecting an answer | Surfaced as a caveat alongside the answer, every time it's relevant |
-
-## 📁 Files
-
-| File | Purpose |
-|---|---|
-| `app.py` | Streamlit chat UI, Groq tool-calling loop, system prompt |
-| `monday_client.py` | Read-only monday.com GraphQL client |
-| `normalize.py` | Column cleaning, typing, and data-quality reporting |
-| `requirements.txt` | Pinned dependencies |
-| `runtime.txt` | Python version pin (3.12) |
-
-📄 Full assumptions, trade-offs, and the "leadership updates"
-interpretation are in [`DECISION_LOG.md`](./DECISION_LOG.md).
+</details>
 
 ---
 
+### wiring up monday.com itself
+
+Import the assignment CSVs as two boards: **Deals** and **Work
+Orders**, with Status/Date/Numbers column types.
+
+Two different matching strategies are used on purpose:
+
+- **Deals** → matched by monday.com's auto-generated column IDs
+  (`DEALS_COLUMN_MAP` in `app.py`). Rebuild the board, and you'll need
+  to re-discover and update those IDs — they're board-specific.
+- **Work Orders** → matched by scanning **column titles** for
+  keywords like *"status"*, *"sector"*, *"value"*
+  (`WORK_ORDERS_KEYWORD_MAP`). No manual ID lookup required.
+
+---
+
+### what happens when the data is a mess (it is)
+
+| the mess | what the agent does about it |
+|---|---|
+| a deal's value is blank | counted as **unknown**, never as ₹0 — kept out of totals entirely |
+| dates in five different formats | parsed across the common ones; anything unreadable becomes `null`, not a crash |
+| an answer would be wrong without context | the caveat rides along with the answer, every time |
+
+---
+
+### the rest of the paper trail
+
+Assumptions, trade-offs, and how *"leadership updates"* got
+interpreted all live in [`DECISION_LOG.md`](./DECISION_LOG.md) — worth
+a read before you judge any of the above.
+
+<br>
+
 <div align="center">
-
-Built for the Skylark Drones full-stack assignment · read-only, live monday.com integration · zero-cost LLM tier
-
+<sub>Skylark Drones full-stack assignment · read-only monday.com integration · runs on free-tier everything</sub>
 </div>
